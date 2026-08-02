@@ -2,12 +2,6 @@ project('miniocpp', 'cpp', version : '0.6.0', default_options : ['cpp_std=c++17'
 
 cxx = meson.get_compiler('cpp')
 
-# method: 'cmake' скрізь нижче (крім openssl - у Meson є вбудований
-# спеціальний резолвер під нього) - на Windows-раннерах pkg-config може
-# бути затінений нефункціональною заглушкою (напр. Strawberry Perl's
-# pkg-config.bat), що ламає дефолтний auto-метод. Назви пакетів/таргетів
-# узяті з того, що реально шукає CMake-версія цього ж репозиторію
-# (cmake/miniocpp-deps.cmake).
 openssl_dep = dependency('openssl')
 httplib_dep = dependency('httplib', method : 'cmake', modules : ['httplib::httplib'])
 inih_dep = dependency('unofficial-inih', method : 'cmake', modules : ['unofficial::inih::inireader'])
