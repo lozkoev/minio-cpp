@@ -102,6 +102,10 @@ list(APPEND MINIO_CPP_LIBS ${MINIO_CPP_DEPS_LINK_LIBS})
 if (WIN32)
   list(APPEND MINIO_CPP_LIBS wsock32)
   list(APPEND MINIO_CPP_LIBS ws2_32)
+  # miniocpp.pc.in has no visibility into target_link_libraries() - without this,
+  # pkg-config consumers (non-CMake) are missing wsock32/ws2_32 at link time
+  # (getaddrinfo, select, ...).
+  set(MINIO_CPP_PC_EXTRA_LIBS " -lwsock32 -lws2_32")
 endif()
 if (APPLE)
   # httplib loads macOS system certificates from the Keychain
