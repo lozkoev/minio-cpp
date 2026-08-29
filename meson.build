@@ -3,7 +3,7 @@ project('miniocpp', 'cpp', version : '0.4.0')
 cxx = meson.get_compiler('cpp')
 
 openssl_dep = dependency('openssl')
-curlpp_dep = dependency('curlpp')
+httplib_dep = dependency('httplib', method : 'cmake', modules : ['httplib::httplib'])
 inih_dep = dependency('INIReader')
 nlohmann_json_dep = dependency('nlohmann_json')
 pugixml_dep = dependency('pugixml')
@@ -14,7 +14,7 @@ if host_machine.system() == 'windows'
   extra_libs = [cxx.find_library('ws2_32'), cxx.find_library('wsock32')]
 endif
 
-all_deps = [openssl_dep, curlpp_dep, inih_dep, nlohmann_json_dep, pugixml_dep, zlib_dep] + extra_libs
+all_deps = [openssl_dep, httplib_dep, inih_dep, nlohmann_json_dep, pugixml_dep, zlib_dep] + extra_libs
 miniocpp_include = include_directories('include')
 
 miniocpp_sources = files(
