@@ -49,7 +49,8 @@ miniocpp_lib = static_library('miniocpp', miniocpp_sources,
 
 build_module = (
   (cxx.get_id() == 'msvc' and cxx.version().version_compare('>=19.34'))
-  or (cxx.get_id() == 'clang' and cxx.version().version_compare('>=16.0'))
+  or (cxx.get_id() == 'clang' and host_machine.system() != 'darwin'
+      and cxx.version().version_compare('>=16.0'))
 )
 
 if build_module
