@@ -1,0 +1,61 @@
+name: MinIO C++ Meson
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Перевіряє, що альтернативний Meson-білд (subprojects meson.build, наш
+  # форк) взагалі конфігурується й компілюється - НЕ дублює тестовий прогін
+  # з build/build-alpine (Meson-шлях поки не будує tests/, лише саму
+  # бібліотеку). Одна платформа для старту; розширити на матрицю пізніше,
+  # якщо буде потрібно.
+  build-meson:
+    name: Ubuntu_Latest_GCC_Meson
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout minio-cpp
+      uses: actions/checkout@v4
+      with:
+        path: minio-cpp
+
+    - name: Checkout vcpkg
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        ref: "2026.07.29"
+        path: vcpkg
+
+    - name: Install Meson and Ninja
+      run: pip install --user meson ninja
+
+    - name: Bootstrap vcpkg
+      run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+    - name: Install dependencies via vcpkg
+      run: |
+        ./vcpkg/vcpkg install \
+          "cpp-httplib[core,openssl]:x64-linux" \
+          "inih[core,cpp]:x64-linux" \
+          "nlohmann-json:x64-linux" \
+          "openssl:x64-linux" \
+          "pugixml:x64-linux" \
+          "zlib:x64-linux"
+
+    - name: Configure and build (Meson)
+      run: |
+        cd minio-cpp
+        meson setup build \
+          -Dpkg_config_path="${{ github.workspace }}/vcpkg/installed/x64-linux/lib/pkgconfig" \
+          -Dcmake_prefix_path="${{ github.workspace }}/vcpkg/installed/x64-linux"
+        meson compile -C build
