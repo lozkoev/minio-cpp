@@ -71,6 +71,11 @@ jobs:
       if: startsWith(matrix.config.os, 'windows')
       uses: ilammy/msvc-dev-cmd@v1
 
+    - name: Remove Git's link.exe if Windows
+      if: startsWith(matrix.config.os, 'windows')
+      shell: bash
+      run: rm -f "/c/Program Files/Git/usr/bin/link.EXE"
+
     - name: Bootstrap vcpkg
       shell: bash
       run: |
