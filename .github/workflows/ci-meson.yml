@@ -97,10 +97,19 @@ jobs:
           "zlib:${{ matrix.config.triplet }}"
 
     - name: Configure and build (Meson)
+      if: ${{ !startsWith(matrix.config.os, 'windows') }}
       shell: bash
       run: |
         cd minio-cpp
         meson setup build \
           -Dpkg_config_path="${{ github.workspace }}/vcpkg/installed/${{ matrix.config.triplet }}/lib/pkgconfig" \
           -Dcmake_prefix_path="${{ github.workspace }}/vcpkg/installed/${{ matrix.config.triplet }}"
+        meson compile -C build
+
+    - name: Configure and build (Meson) if Windows
+      if: startsWith(matrix.config.os, 'windows')
+      shell: cmd
+      run: |
+        cd minio-cpp
+        meson setup build -Dpkg_config_path="${{ github.workspace }}/vcpkg/installed/${{ matrix.config.triplet }}/lib/pkgconfig" -Dcmake_prefix_path="${{ github.workspace }}/vcpkg/installed/${{ matrix.config.triplet }}"
         meson compile -C build
