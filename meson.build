@@ -47,7 +47,13 @@ build_module = (
 )
 
 if build_module
-  module_cpp_args = cxx.get_id() == 'msvc' ? ['/interface'] : []
+  if cxx.get_id() == 'msvc'
+    module_cpp_args = ['/interface']
+  elif cxx.get_id() == 'clang'
+    module_cpp_args = ['-x', 'c++-module']
+  else
+    module_cpp_args = []
+  endif
   miniocpp_module_lib = static_library('miniocpp_module', 'modules/miniocpp.cc',
     include_directories : miniocpp_include,
     dependencies : all_deps,
