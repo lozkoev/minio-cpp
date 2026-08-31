@@ -1,4 +1,4 @@
-project('miniocpp', 'cpp', version : '0.4.0')
+project('miniocpp', 'cpp', version : '0.4.0', default_options : ['cpp_std=c++17'])
 
 cxx = meson.get_compiler('cpp')
 
@@ -43,18 +43,11 @@ miniocpp_lib = static_library('miniocpp', miniocpp_sources,
 
 build_module = (
   (cxx.get_id() == 'msvc' and cxx.version().version_compare('>=19.34'))
-  or (cxx.get_id() == 'gcc' and cxx.version().version_compare('>=14.0'))
   or (cxx.get_id() == 'clang' and cxx.version().version_compare('>=16.0'))
 )
 
 if build_module
-  if cxx.get_id() == 'msvc'
-    module_cpp_args = ['/interface']
-  elif cxx.get_id() == 'gcc'
-    module_cpp_args = ['-fmodules-ts']
-  else
-    module_cpp_args = []
-  endif
+  module_cpp_args = cxx.get_id() == 'msvc' ? ['/interface'] : []
   miniocpp_module_lib = static_library('miniocpp_module', 'modules/miniocpp.cc',
     include_directories : miniocpp_include,
     dependencies : all_deps,
