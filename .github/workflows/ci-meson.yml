@@ -15,14 +15,19 @@ permissions:
   contents: read
 
 jobs:
-  # Перевіряє, що альтернативний Meson-білд (subprojects meson.build, наш
-  # форк) взагалі конфігурується й компілюється - НЕ дублює тестовий прогін
-  # з build/build-alpine (Meson-шлях поки не будує tests/, лише саму
-  # бібліотеку). Одна платформа для старту; розширити на матрицю пізніше,
-  # якщо буде потрібно.
   build-meson:
-    name: Ubuntu_Latest_GCC_Meson
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - { name: "Ubuntu_Latest_GCC_Meson", os: ubuntu-latest, triplet: "x64-linux" }
+        - { name: "Ubuntu_Latest_GCC_arm64_Meson", os: ubuntu-24.04-arm, triplet: "arm64-linux" }
+        - { name: "macOS_Latest_Clang_Meson", os: macos-latest, triplet: "arm64-osx" }
+        - { name: "Windows_Latest_MSVC_Meson", os: windows-latest, triplet: "x64-windows" }
+
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+
     steps:
     - name: Checkout minio-cpp
       uses: actions/checkout@v4
@@ -39,23 +44,47 @@ jobs:
     - name: Install Meson and Ninja
       run: pip install --user meson ninja
 
+    - name: Install GCC 14 if Ubuntu
+      if: startsWith(matrix.config.name, 'Ubuntu_Latest_GCC')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-14 g++-14
+        echo "CC=gcc-14" >> "$GITHUB_ENV"
+        echo "CXX=g++-14" >> "$GITHUB_ENV"
+
+    - name: Install dependencies if macOS
+      if: startsWith(matrix.config.os, 'macos')
+      run: brew install pkg-config
+
+    - name: Set up MSVC dev environment if Windows
+      if: startsWith(matrix.config.os, 'windows')
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Bootstrap vcpkg
-      run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          ./vcpkg/bootstrap-vcpkg.bat -disableMetrics
+        else
+          ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        fi
 
     - name: Install dependencies via vcpkg
+      shell: bash
       run: |
         ./vcpkg/vcpkg install \
-          "cpp-httplib[core,openssl]:x64-linux" \
-          "inih[core,cpp]:x64-linux" \
-          "nlohmann-json:x64-linux" \
-          "openssl:x64-linux" \
-          "pugixml:x64-linux" \
-          "zlib:x64-linux"
+          "cpp-httplib[core,openssl]:${{ matrix.config.triplet }}" \
+          "inih[core,cpp]:${{ matrix.config.triplet }}" \
+          "nlohmann-json:${{ matrix.config.triplet }}" \
+          "openssl:${{ matrix.config.triplet }}" \
+          "pugixml:${{ matrix.config.triplet }}" \
+          "zlib:${{ matrix.config.triplet }}"
 
     - name: Configure and build (Meson)
+      shell: bash
       run: |
         cd minio-cpp
         meson setup build \
-          -Dpkg_config_path="${{ github.workspace }}/vcpkg/installed/x64-linux/lib/pkgconfig" \
-          -Dcmake_prefix_path="${{ github.workspace }}/vcpkg/installed/x64-linux"
+          -Dpkg_config_path="${{ github.workspace }}/vcpkg/installed/${{ matrix.config.triplet }}/lib/pkgconfig" \
+          -Dcmake_prefix_path="${{ github.workspace }}/vcpkg/installed/${{ matrix.config.triplet }}"
         meson compile -C build

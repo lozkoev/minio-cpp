@@ -41,28 +41,29 @@ miniocpp_lib = static_library('miniocpp', miniocpp_sources,
   dependencies : all_deps,
 )
 
-# Module as its own target - /interface (MSVC) / -fmodules-ts (GCC) лише для
-# цього одного файлу, не для решти .cc джерел. GCC (на відміну від MSVC) не
-# вмикає підтримку C++20-модулів автоматично на -std=c++20 - без -fmodules-ts
-# 'module'/'export module' не розпізнаються взагалі (error: 'module' does not
-# name a type). Clang використовує ще інший прапорець (-fmodules) - додати
-# власною гілкою, коли/якщо Clang з'явиться в матриці CI.
-module_cpp_args = []
-if cxx.get_id() == 'msvc'
-  module_cpp_args = ['/interface']
-elif cxx.get_id() == 'gcc'
-  module_cpp_args = ['-fmodules-ts']
+build_module = (
+  (cxx.get_id() == 'msvc' and cxx.version().version_compare('>=19.34'))
+  or (cxx.get_id() == 'gcc' and cxx.version().version_compare('>=14.0'))
+  or (cxx.get_id() == 'clang' and cxx.version().version_compare('>=16.0'))
+)
+
+if build_module
+  module_cpp_args = cxx.get_id() == 'msvc' ? ['/interface'] : []
+  miniocpp_module_lib = static_library('miniocpp_module', 'modules/miniocpp.cc',
+    include_directories : miniocpp_include,
+    dependencies : all_deps,
+    cpp_args : module_cpp_args,
+    override_options : ['cpp_std=c++20'],
+  )
+  miniocpp_dep = declare_dependency(
+    link_with : [miniocpp_lib, miniocpp_module_lib],
+    include_directories : miniocpp_include,
+    dependencies : all_deps,
+  )
+else
+  miniocpp_dep = declare_dependency(
+    link_with : [miniocpp_lib],
+    include_directories : miniocpp_include,
+    dependencies : all_deps,
+  )
 endif
-
-miniocpp_module_lib = static_library('miniocpp_module', 'modules/miniocpp.cc',
-  include_directories : miniocpp_include,
-  dependencies : all_deps,
-  cpp_args : module_cpp_args,
-  override_options : ['cpp_std=c++20'],
-)
-
-miniocpp_dep = declare_dependency(
-  link_with : [miniocpp_lib, miniocpp_module_lib],
-  include_directories : miniocpp_include,
-  dependencies : all_deps,
-)
