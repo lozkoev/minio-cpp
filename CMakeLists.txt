@@ -23,8 +23,8 @@ endif()
 # Minio C++ Project
 # -----------------
 
-set(MINIO_CPP_MAJOR_VERSION "0")
-set(MINIO_CPP_MINOR_VERSION "6")
+set(MINIO_CPP_MAJOR_VERSION "1")
+set(MINIO_CPP_MINOR_VERSION "0")
 set(MINIO_CPP_PATCH_VERSION "0")
 set(MINIO_CPP_VERSION_STRING "${MINIO_CPP_MAJOR_VERSION}.${MINIO_CPP_MINOR_VERSION}.${MINIO_CPP_PATCH_VERSION}")
 
@@ -98,6 +98,12 @@ endif()
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/miniocpp-deps.cmake)
 
 list(APPEND MINIO_CPP_LIBS ${MINIO_CPP_DEPS_LINK_LIBS})
+
+if (MINIO_CPP_ENABLE_RDMA)
+  # Installed beside libminio, so -L${libdir} on the Libs line already finds
+  # it; a static consumer still has to name it.
+  list(APPEND MINIO_CPP_PC_LIBS_PRIVATE -ls3rdma)
+endif()
 
 if (WIN32)
   list(APPEND MINIO_CPP_LIBS wsock32)
@@ -261,7 +267,16 @@ target_compile_definitions(miniocpp PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 if (MINIO_CPP_ENABLE_RDMA)
   target_compile_definitions(miniocpp PUBLIC MINIO_CPP_RDMA)
 endif()
+# The artifact is libminio, matching the `minio` C++20 module. The CMake
+# package, the exported target and the header directory stay `miniocpp`, so
+# existing find_package() and #include lines keep working.
+set_target_properties(miniocpp PROPERTIES OUTPUT_NAME minio)
 set_target_properties(miniocpp PROPERTIES VERSION "${MINIO_CPP_VERSION_STRING}")
+# SOVERSION carries the major alone, so the soname is libminio.so.1 and stays
+# put across the whole 1.x line. Without it CMake writes the full version into
+# the soname -- as libminiocpp.so.0.4.0 shows -- and every release, patches
+# included, orphans every binary already linked against its predecessor.
+set_target_properties(miniocpp PROPERTIES SOVERSION "${MINIO_CPP_MAJOR_VERSION}")
 set_target_properties(miniocpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Add a cmake alias - this is how users should use minio-cpp in their cmake projects.
@@ -381,7 +396,7 @@ configure_package_config_file(
 
 if (MINIO_CPP_ENABLE_RDMA)
   # Ship the vendored transport alongside the library and resolve it relative
-  # to whatever installed thing loads it, so an installed libminiocpp does not
+  # to whatever installed thing loads it, so an installed libminio does not
   # depend on this source tree still being present. Both names go in: the
   # soname is what the loader asks for, the link name is what -ls3rdma finds.
   install(FILES
@@ -450,5 +465,13 @@ install(FILES
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/tl"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
+string(REPLACE ";" " " MINIO_CPP_PC_REQUIRES_PRIVATE_STR "${MINIO_CPP_PC_REQUIRES_PRIVATE}")
+string(REPLACE ";" " " MINIO_CPP_PC_LIBS_PRIVATE_STR "${MINIO_CPP_PC_LIBS_PRIVATE}")
+if (MINIO_CPP_PC_REQUIRES_PRIVATE_STR)
+  set(MINIO_CPP_PC_REQUIRES_PRIVATE_LINE "Requires.private: ${MINIO_CPP_PC_REQUIRES_PRIVATE_STR}\n")
+endif()
+if (MINIO_CPP_PC_LIBS_PRIVATE_STR)
+  set(MINIO_CPP_PC_LIBS_PRIVATE_LINE "Libs.private: ${MINIO_CPP_PC_LIBS_PRIVATE_STR}\n")
+endif()
 configure_file(miniocpp.pc.in ${CMAKE_CURRENT_BINARY_DIR}/miniocpp.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/miniocpp.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
